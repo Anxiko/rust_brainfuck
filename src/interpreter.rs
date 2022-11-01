@@ -212,7 +212,7 @@ impl Interpreter {
 	fn enter_loop(&mut self) -> InterpreterResult {
 		if let Some(byte) = self.mem_ref() {
 			let next_state = if *byte != 0 {
-				self.stack.push(self.data_ptr);
+				self.stack.push(self.instruction_ptr);
 				InterpreterState::Running
 			} else {
 				InterpreterState::Skipping(1)
@@ -226,7 +226,7 @@ impl Interpreter {
 
 	fn exit_loop(&mut self) -> InterpreterResult {
 		if let Some(loop_ptr) = self.stack.pop() {
-			self.data_ptr = loop_ptr;
+			self.instruction_ptr = loop_ptr;
 			Ok(())
 		} else {
 			InterpreterError::stack_underflow()
@@ -250,16 +250,20 @@ impl Interpreter {
 	}
 
 	fn run_instruction(&mut self, instruction: &InterpreterInstruction) -> InterpreterResult {
-		match instruction {
-			InterpreterInstruction::MovePtrRight => self.move_right(),
-			InterpreterInstruction::MovePtrLeft => self.move_left(),
-			InterpreterInstruction::IncrementPtr => self.increment_cell(),
-			InterpreterInstruction::DecrementPtr => self.decrement_cell(),
-			InterpreterInstruction::PrintPtr => self.print_ptr(),
-			InterpreterInstruction::ReadPtr => self.read_ptr(),
-			InterpreterInstruction::LoopStart => self.enter_loop(),
-			InterpreterInstruction::LoopEnd => self.exit_loop()
+		let (advance, result) = match instruction {
+			InterpreterInstruction::MovePtrRight => (true, self.move_right()),
+			InterpreterInstruction::MovePtrLeft => (true, self.move_left()),
+			InterpreterInstruction::IncrementPtr => (true, self.increment_cell()),
+			InterpreterInstruction::DecrementPtr => (true, self.decrement_cell()),
+			InterpreterInstruction::PrintPtr => (true, self.print_ptr()),
+			InterpreterInstruction::ReadPtr => (true, self.read_ptr()),
+			InterpreterInstruction::LoopStart => (true, self.enter_loop()),
+			InterpreterInstruction::LoopEnd => (false, self.exit_loop())
+		};
+		if advance && result.is_ok() {
+			self.next_instruction();
 		}
+		result
 	}
 
 	pub fn interpret_symbol(&mut self, symbol: &InterpreterSymbol) -> InterpreterResult {
@@ -295,7 +299,6 @@ impl Interpreter {
 			}
 			(InterpreterState::Running, InterpreterSymbol::Instruction(instruction)) => {
 				self.run_instruction(instruction)?;
-				self.next_instruction();
 				Ok(())
 			}
 			(InterpreterState::Running, InterpreterSymbol::Other(_)) => {
