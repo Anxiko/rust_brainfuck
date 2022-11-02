@@ -124,8 +124,7 @@ impl Interpreter {
 	fn delta_data_cell(&mut self, delta: i8) -> InterpreterResult {
 		if let Ok(val) = self.read_memory() {
 			if let Some(new_val) = math_utils::safe_delta_u8(val, delta) {
-				self.write_memory(new_val);
-				Ok(())
+				self.write_memory(new_val)
 			} else {
 				InterpreterError::val_out_of_bounds(self, delta).to_result()
 			}

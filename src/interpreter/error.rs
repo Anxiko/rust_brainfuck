@@ -2,8 +2,8 @@ use crate::interpreter::{Interpreter, InterpreterResult, InterpreterState};
 
 #[derive(Debug)]
 pub struct InterpreterMismatchedBracketsError {
-	instruction_ptr: usize,
-	missing_brackets: usize,
+	_instruction_ptr: usize,
+	_missing_brackets: usize,
 }
 
 #[derive(Debug)]
@@ -66,8 +66,8 @@ impl InterpreterError {
 		if let InterpreterState::Skipping(missing_brackets) = interpreter.state {
 			InterpreterError {
 				reason: InterpreterErrorReason::MismatchedBrackets(InterpreterMismatchedBracketsError {
-					instruction_ptr,
-					missing_brackets,
+					_instruction_ptr: instruction_ptr,
+					_missing_brackets: missing_brackets,
 				}),
 			}
 		} else {

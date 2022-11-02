@@ -67,9 +67,11 @@ fn extract_filename() -> Option<String> {
 fn main() {
 	if let Some(filename) = extract_filename() {
 		let characters = read_file(&filename);
+		println!("Running...");
 		let result = run_interpreter(characters);
 		match result {
 			Ok(final_interpreter) => {
+				println!("\nFinished successfully!");
 				print_interpreter(&final_interpreter);
 			}
 			Err(err) => {
