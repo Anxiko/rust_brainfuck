@@ -9,7 +9,7 @@ pub struct InterpreterMismatchedBracketsError {
 #[derive(Debug)]
 pub enum InterpreterErrorReason {
 	PtrOutOfBounds(usize),
-	ValOutOfBounds(u8),
+	ValOutOfBounds { data_ptr: usize, delta: i8 },
 	InvalidChar,
 	StackUnderflow,
 	HaltedMachine,
@@ -22,57 +22,63 @@ pub struct InterpreterError {
 }
 
 impl InterpreterError {
-	pub fn ptr_out_of_bounds(interpreter: &Interpreter) -> InterpreterResult {
+	pub fn to_result(self) -> InterpreterResult {
+		Err(self)
+	}
+
+	pub fn ptr_out_of_bounds(interpreter: &Interpreter) -> Self {
 		let ptr: usize = interpreter.data_ptr;
 
-		Err(InterpreterError {
+		Self {
 			reason: InterpreterErrorReason::PtrOutOfBounds(ptr),
-		})
+		}
 	}
 
-	pub fn val_out_of_bounds(interpreter: &Interpreter) -> InterpreterResult {
-		let val = interpreter.memory[interpreter.data_ptr];
-		Err(InterpreterError {
-			reason: InterpreterErrorReason::ValOutOfBounds(val),
-		})
+	pub fn val_out_of_bounds(interpreter: &Interpreter, delta: i8) -> Self {
+		Self {
+			reason: InterpreterErrorReason::ValOutOfBounds {
+				data_ptr: interpreter.data_ptr,
+				delta,
+			},
+		}
 	}
 
-	pub fn invalid_char() -> InterpreterResult {
-		Err(InterpreterError {
+	pub fn invalid_char() -> Self {
+		InterpreterError {
 			reason: InterpreterErrorReason::InvalidChar,
-		})
+		}
 	}
 
-	pub fn stack_underflow() -> InterpreterResult {
-		Err(InterpreterError {
+	pub fn stack_underflow() -> Self {
+		InterpreterError {
 			reason: InterpreterErrorReason::StackUnderflow,
-		})
+		}
 	}
 
-	pub fn halted_machine() -> InterpreterResult {
-		Err(InterpreterError {
+	pub fn halted_machine() -> Self {
+		InterpreterError {
 			reason: InterpreterErrorReason::HaltedMachine,
-		})
+		}
 	}
 
-	pub fn mismatched_brackets(interpreter: &Interpreter) -> InterpreterResult {
+	pub fn mismatched_brackets(interpreter: &Interpreter) -> Self {
 		let instruction_ptr = interpreter.instruction_ptr;
 		if let InterpreterState::Skipping(missing_brackets) = interpreter.state {
-			Err(InterpreterError {
+			InterpreterError {
 				reason: InterpreterErrorReason::MismatchedBrackets(InterpreterMismatchedBracketsError {
 					instruction_ptr,
 					missing_brackets,
 				}),
-			})
+			}
 		} else {
 			panic!("Not in a skipping state");
 		}
 	}
 
-	pub fn unprintable_byte(byte: u8) -> InterpreterResult {
-		Err(InterpreterError {
+	pub fn unprintable_byte(byte: u8) -> Self {
+		InterpreterError {
 			reason: InterpreterErrorReason::UnprintableByte(byte),
-		})
+		}
 	}
 }
 

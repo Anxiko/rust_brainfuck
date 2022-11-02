@@ -1,15 +1,18 @@
 pub mod error;
 mod io;
 mod math_utils;
+mod memory;
 
 use error::InterpreterError;
 use crate::InterpreterSymbol;
 use crate::symbol::InterpreterInstruction;
+use memory::InterpreterMemory;
 
 const MEM_SIZE: usize = 30_000usize;
 
+#[derive(Debug)]
 pub struct Interpreter {
-	memory: [u8; MEM_SIZE],
+	memory: InterpreterMemory,
 	data_ptr: usize,
 	instruction_ptr: usize,
 	stack: Vec<usize>,
@@ -18,6 +21,7 @@ pub struct Interpreter {
 
 pub type InterpreterResult = Result<(), InterpreterError>;
 
+#[derive(Debug)]
 pub enum InterpreterState {
 	Running,
 	Skipping(usize),
@@ -27,7 +31,7 @@ pub enum InterpreterState {
 impl Interpreter {
 	pub fn new() -> Self {
 		Interpreter {
-			memory: [0u8; MEM_SIZE],
+			memory: InterpreterMemory::new(),
 			data_ptr: 0usize,
 			instruction_ptr: 0usize,
 			stack: Vec::new(),
@@ -43,12 +47,26 @@ impl Interpreter {
 		matches!(self.state, InterpreterState::Halted)
 	}
 
+	fn read_memory(&self) -> Result<u8, InterpreterError> {
+		if let Ok(value) = self.memory.read(self.data_ptr) {
+			Ok(value)
+		} else {
+			Err(InterpreterError::ptr_out_of_bounds(self))
+		}
+	}
+
+	fn write_memory(&mut self, value: u8) -> Result<(), InterpreterError> {
+		self.memory.write(self.data_ptr, value).map_err(
+			|()| InterpreterError::ptr_out_of_bounds(self)
+		)
+	}
+
 	fn move_right(&mut self) -> InterpreterResult {
 		if self.data_ptr + 1 < MEM_SIZE {
 			self.data_ptr += 1;
 			Ok(())
 		} else {
-			InterpreterError::ptr_out_of_bounds(self)
+			InterpreterError::ptr_out_of_bounds(self).to_result()
 		}
 	}
 
@@ -56,7 +74,7 @@ impl Interpreter {
 		let state = &self.state;
 
 		match (state, symbol) {
-			(InterpreterState::Halted, _) => InterpreterError::halted_machine(),
+			(InterpreterState::Halted, _) => InterpreterError::halted_machine().to_result(),
 			(InterpreterState::Skipping(skip), InterpreterSymbol::Instruction(InterpreterInstruction::LoopEnd)) => {
 				let skip = skip - 1;
 				if skip > 0 {
@@ -68,7 +86,7 @@ impl Interpreter {
 				Ok(())
 			}
 			(InterpreterState::Skipping(_), InterpreterSymbol::EOF) => {
-				InterpreterError::mismatched_brackets(self)
+				InterpreterError::mismatched_brackets(self).to_result()
 			}
 			(InterpreterState::Skipping(skip), InterpreterSymbol::Instruction(InterpreterInstruction::LoopStart)) => {
 				self.state = InterpreterState::Skipping(skip + 1);
@@ -99,28 +117,20 @@ impl Interpreter {
 			self.data_ptr -= 1;
 			Ok(())
 		} else {
-			InterpreterError::ptr_out_of_bounds(self)
-		}
-	}
-
-	fn mem_ref(&mut self) -> Option<&mut u8> {
-		if self.data_ptr < MEM_SIZE {
-			Some(&mut self.memory[self.data_ptr])
-		} else {
-			None
+			InterpreterError::ptr_out_of_bounds(self).to_result()
 		}
 	}
 
 	fn delta_data_cell(&mut self, delta: i8) -> InterpreterResult {
-		if let Some(mem_ref) = self.mem_ref() {
-			if let Some(new_val) = math_utils::safe_delta_u8(*mem_ref, delta) {
-				*mem_ref = new_val;
+		if let Ok(val) = self.read_memory() {
+			if let Some(new_val) = math_utils::safe_delta_u8(val, delta) {
+				self.write_memory(new_val);
 				Ok(())
 			} else {
-				InterpreterError::val_out_of_bounds(self)
+				InterpreterError::val_out_of_bounds(self, delta).to_result()
 			}
 		} else {
-			InterpreterError::ptr_out_of_bounds(self)
+			InterpreterError::ptr_out_of_bounds(self).to_result()
 		}
 	}
 
@@ -134,34 +144,28 @@ impl Interpreter {
 
 
 	fn print_ptr(&mut self) -> InterpreterResult {
-		if let Some(mem_ref) = self.mem_ref() {
-			let byte = *mem_ref;
-			if let Some(_printed_string) = error::print_char(byte) {
+		if let Ok(val) = self.read_memory() {
+			if let Some(_printed_string) = error::print_char(val) {
 				Ok(())
 			} else {
-				InterpreterError::unprintable_byte(byte)
+				InterpreterError::unprintable_byte(val).to_result()
 			}
 		} else {
-			InterpreterError::ptr_out_of_bounds(self)
+			InterpreterError::ptr_out_of_bounds(self).to_result()
 		}
 	}
 
 	fn read_ptr(&mut self) -> InterpreterResult {
 		if let Some(byte) = error::read_byte() {
-			if let Some(mem_ref) = self.mem_ref() {
-				*mem_ref = byte;
-				Ok(())
-			} else {
-				InterpreterError::ptr_out_of_bounds(self)
-			}
+			self.write_memory(byte)
 		} else {
-			InterpreterError::invalid_char()
+			InterpreterError::invalid_char().to_result()
 		}
 	}
 
 	fn enter_loop(&mut self) -> InterpreterResult {
-		if let Some(byte) = self.mem_ref() {
-			let next_state = if *byte != 0 {
+		if let Ok(val) = self.read_memory() {
+			let next_state = if val != 0 {
 				self.stack.push(self.instruction_ptr);
 				InterpreterState::Running
 			} else {
@@ -170,7 +174,7 @@ impl Interpreter {
 			self.state = next_state;
 			Ok(())
 		} else {
-			InterpreterError::ptr_out_of_bounds(self)
+			InterpreterError::ptr_out_of_bounds(self).to_result()
 		}
 	}
 
@@ -179,7 +183,7 @@ impl Interpreter {
 			self.instruction_ptr = loop_ptr;
 			Ok(())
 		} else {
-			InterpreterError::stack_underflow()
+			InterpreterError::stack_underflow().to_result()
 		}
 	}
 
