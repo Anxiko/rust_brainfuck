@@ -13,11 +13,13 @@ pub struct Interpreter {
 
 pub type InterpreterResult = Result<(), InterpreterError>;
 
+#[derive(Debug)]
 pub struct InterpreterMismatchedBracketsError {
 	instruction_ptr: usize,
 	missing_brackets: usize,
 }
 
+#[derive(Debug)]
 pub enum InterpreterErrorReason {
 	PtrOutOfBounds(usize),
 	ValOutOfBounds(u8),
@@ -35,7 +37,7 @@ pub enum InterpreterState {
 }
 
 pub struct InterpreterError {
-	reason: InterpreterErrorReason,
+	pub reason: InterpreterErrorReason,
 }
 
 impl InterpreterError {

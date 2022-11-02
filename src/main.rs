@@ -1,13 +1,13 @@
-mod interpreter;
-mod symbol;
-
 use std::env;
 use std::fs;
 
 use interpreter::Interpreter;
-use interpreter::InterpreterResult;
 use symbol::InterpreterSymbol;
 
+use crate::interpreter::{InterpreterError, InterpreterErrorReason};
+
+mod interpreter;
+mod symbol;
 
 fn read_file(filename: &str) -> Vec<char> {
     let file_contents: String = fs::read_to_string(
@@ -23,13 +23,23 @@ fn read_instruction(characters: &Vec<char>, bf_interpreter: &Interpreter) -> Int
     InterpreterSymbol::from_char(character)
 }
 
-fn run_interpreter(characters: Vec<char>) -> InterpreterResult {
+fn print_out_error(interpreter_error: &InterpreterError) {
+    let reason: &InterpreterErrorReason = &interpreter_error.reason;
+    println!("Error! Reason: {reason:?}");
+}
+
+fn run_interpreter(characters: Vec<char>) -> Result<Interpreter, InterpreterError> {
     let mut bf_interpreter = Interpreter::new();
-    while !bf_interpreter.is_halted() {
+    loop {
+        if bf_interpreter.is_halted() {
+            break Ok(bf_interpreter);
+        }
+
         let symbol = read_instruction(&characters, &bf_interpreter);
-        bf_interpreter.interpret_symbol(&symbol)?;
+        if let Err(interpreter_error) = bf_interpreter.interpret_symbol(&symbol) {
+            break Err(interpreter_error);
+        }
     }
-    Ok(())
 }
 
 fn print_usage(program_name: &str) -> () {
@@ -59,8 +69,8 @@ fn main() {
             Ok(_final_interpreter) => {
                 println!("Finished OK!");
             }
-            Err(_err) => {
-                println!("Finished with error!");
+            Err(err) => {
+                print_out_error(&err);
             }
         }
     }
