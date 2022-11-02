@@ -1,10 +1,9 @@
 use std::env;
 use std::fs;
+use interpreter::error::{InterpreterError, InterpreterErrorReason};
 
 use interpreter::Interpreter;
 use symbol::InterpreterSymbol;
-
-use crate::interpreter::{InterpreterError, InterpreterErrorReason};
 
 mod interpreter;
 mod symbol;
