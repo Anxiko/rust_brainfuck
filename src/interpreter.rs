@@ -51,13 +51,13 @@ impl Interpreter {
 		if let Ok(value) = self.memory.read(self.data_ptr) {
 			Ok(value)
 		} else {
-			Err(InterpreterError::ptr_out_of_bounds(self))
+			Err(InterpreterError::ptr_out_of_bounds_from_interpreter(self))
 		}
 	}
 
 	fn write_memory(&mut self, value: u8) -> Result<(), InterpreterError> {
 		self.memory.write(self.data_ptr, value).map_err(
-			|()| InterpreterError::ptr_out_of_bounds(self)
+			|()| InterpreterError::ptr_out_of_bounds_from_interpreter(self)
 		)
 	}
 
@@ -66,7 +66,7 @@ impl Interpreter {
 			self.data_ptr += 1;
 			Ok(())
 		} else {
-			InterpreterError::ptr_out_of_bounds(self).to_result()
+			InterpreterError::ptr_out_of_bounds_from_interpreter(self).to_result()
 		}
 	}
 
@@ -117,21 +117,19 @@ impl Interpreter {
 			self.data_ptr -= 1;
 			Ok(())
 		} else {
-			InterpreterError::ptr_out_of_bounds(self).to_result()
+			InterpreterError::ptr_out_of_bounds_from_interpreter(self).to_result()
 		}
 	}
 
 	fn delta_data_cell(&mut self, delta: i8) -> InterpreterResult {
-		if let Ok(val) = self.read_memory() {
-			if let Some(new_val) = math_utils::safe_delta_u8(val, delta) {
-				self.write_memory(new_val)
-			} else {
-				InterpreterError::val_out_of_bounds(self, delta).to_result()
-			}
-		} else {
-			InterpreterError::ptr_out_of_bounds(self).to_result()
-		}
+		let val = self.read_memory()?;
+		let new_val = math_utils::safe_delta_u8(val, delta).map_err(
+			|delta_error|
+				InterpreterError::val_out_of_bounds(self.data_ptr, delta_error.right)
+		)?;
+		self.write_memory(new_val)
 	}
+
 
 	fn increment_cell(&mut self) -> InterpreterResult {
 		self.delta_data_cell(1)
@@ -150,7 +148,7 @@ impl Interpreter {
 				InterpreterError::unprintable_byte(val).to_result()
 			}
 		} else {
-			InterpreterError::ptr_out_of_bounds(self).to_result()
+			InterpreterError::ptr_out_of_bounds_from_interpreter(self).to_result()
 		}
 	}
 
@@ -173,7 +171,7 @@ impl Interpreter {
 			self.state = next_state;
 			Ok(())
 		} else {
-			InterpreterError::ptr_out_of_bounds(self).to_result()
+			InterpreterError::ptr_out_of_bounds_from_interpreter(self).to_result()
 		}
 	}
 

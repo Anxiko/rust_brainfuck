@@ -26,20 +26,17 @@ impl InterpreterError {
 		Err(self)
 	}
 
-	pub fn ptr_out_of_bounds(interpreter: &Interpreter) -> Self {
-		let ptr: usize = interpreter.data_ptr;
-
-		Self {
-			reason: InterpreterErrorReason::PtrOutOfBounds(ptr),
-		}
+	pub fn ptr_out_of_bounds_from_interpreter(interpreter: &Interpreter) -> Self {
+		Self::ptr_out_of_bounds(interpreter.data_ptr)
 	}
 
-	pub fn val_out_of_bounds(interpreter: &Interpreter, delta: i8) -> Self {
+	pub fn ptr_out_of_bounds(data_ptr: usize) -> Self {
+		Self { reason: InterpreterErrorReason::PtrOutOfBounds(data_ptr) }
+	}
+
+	pub fn val_out_of_bounds(data_ptr: usize, delta: i8) -> Self {
 		Self {
-			reason: InterpreterErrorReason::ValOutOfBounds {
-				data_ptr: interpreter.data_ptr,
-				delta,
-			},
+			reason: InterpreterErrorReason::ValOutOfBounds { data_ptr, delta }
 		}
 	}
 
